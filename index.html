@@ -552,8 +552,10 @@
         uploadBox.style.pointerEvents = 'none';
         try {
             const blob = await removeBackgroundFn(file, {
-                publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.6.0/dist/',
-                model: 'medium',
+                // No publicPath override: the library's default already points to
+                // the correct, version-matched CDN host for the ONNX model files
+                // (staticimgly.com). Pointing this at the jsDelivr package files
+                // breaks model lookup, since the models aren't published there.
                 output: { format: 'image/png', quality: 1 },
                 progress: (key, current, total) => {
                     statusUpload.textContent = `AI: ${Math.round(current/total*100)}%`;
