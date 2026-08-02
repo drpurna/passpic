@@ -227,8 +227,8 @@
     </div>
 </div>
 
-<!-- Libraries -->
-<script src="https://unpkg.com/@imgly/background-removal@1.6.0/dist/background-removal.iife.js"></script>
+<!-- Libraries: AI background removal + PDF -->
+<script src="https://unpkg.com/@imgly/background-removal@1.7.0/dist/background-removal.iife.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
@@ -314,9 +314,6 @@
             for (let i = 0; i < alphaCopy.length; i++) data[i*4 + 3] = blurred[i];
         }
 
-        // Apply color filters using canvas filter (easier, but we need to avoid destroying alpha)
-        // Alternative: use CSS filter on canvas context. We'll do that after putting data back?
-        // We'll just draw the image with context filters, then re-extract. It's fine.
         tctx.putImageData(imageData, 0, 0);
 
         // Now apply brightness/contrast/saturation via ctx.filter
@@ -324,7 +321,6 @@
         const c = contrastInput.value / 100;
         const s = saturationInput.value / 100;
         tctx.filter = `brightness(${b}) contrast(${c}) saturate(${s})`;
-        // Redraw the canvas over itself with filter
         tctx.globalCompositeOperation = 'source-over';
         tctx.drawImage(tempCanvas, 0, 0);
         tctx.filter = 'none';
@@ -551,11 +547,12 @@
         statusUpload.textContent = '⏳ Removing background with AI…';
         uploadBox.style.pointerEvents = 'none';
         try {
-            const blob = await BackgroundRemoval.removeBackground(file, {
+            // ✅ Corrected function name: imglyRemoveBackground
+            const blob = await imglyRemoveBackground(file, {
                 model: 'isnet',
                 output: { format: 'image/png', quality: 1 },
-                progress: (key, cur, total) => {
-                    statusUpload.textContent = `AI: ${Math.round(cur/total*100)}%`;
+                progress: (key, current, total) => {
+                    statusUpload.textContent = `AI: ${Math.round(current/total*100)}%`;
                 }
             });
             const url = URL.createObjectURL(blob);
@@ -628,7 +625,7 @@
         setStep(1);
     });
 
-    // Crop drag (same as before)
+    // Crop drag
     let dragging = false, startX, startY, startLeft, startTop;
     cropBox.addEventListener('mousedown', e => { dragging = true; startX = e.clientX; startY = e.clientY; startLeft = parseFloat(cropBox.style.left); startTop = parseFloat(cropBox.style.top); });
     cropBox.addEventListener('touchstart', e => { e.preventDefault(); dragging = true; startX = e.touches[0].clientX; startY = e.touches[0].clientY; startLeft = parseFloat(cropBox.style.left); startTop = parseFloat(cropBox.style.top); });
