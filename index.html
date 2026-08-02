@@ -227,22 +227,20 @@
     </div>
 </div>
 
-<!-- ✅ Library that WORKS – version 1.6.0, global: BackgroundRemoval -->
-<script src="https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.6.0/dist/background-removal.iife.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-<script>
-    // Quick check – if the library didn't load, show a helpful message
-    window.addEventListener('load', () => {
-        if (typeof BackgroundRemoval === 'undefined') {
-            alert('The AI background removal library could not be loaded.\n\n' +
-                  'Please check your internet connection and reload the page.\n' +
-                  'If the problem persists, download the file manually:\n' +
-                  'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.6.0/dist/background-removal.iife.js\n' +
-                  'Save it as "bg-removal.js" in the same folder, then replace the script tag with:\n' +
-                  '<script src="bg-removal.js"><\/script>');
-        }
-    });
+<script type="module">
+    // ---- AI background removal library (ESM import — the IIFE/UMD build for this
+    // package does not exist on the CDN, so it must be loaded as a module) ----
+    let removeBackgroundFn = null;
+    let libLoadError = null;
+    try {
+        const mod = await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.6.0/dist/index.mjs');
+        removeBackgroundFn = mod.removeBackground || mod.default;
+    } catch (err) {
+        libLoadError = err;
+        console.error('Failed to load background removal library:', err);
+    }
 
     // ---- DOM elements ----
     const step1 = document.getElementById('step1');
@@ -276,6 +274,10 @@
     const downloadPdf = document.getElementById('downloadPdf');
     const newPhotoBtn = document.getElementById('newPhoto');
     const sizeLabel = document.getElementById('sizeLabel');
+
+    if (libLoadError) {
+        statusUpload.textContent = '❌ Could not load the AI background removal library. Check your connection and reload the page.';
+    }
 
     // ---- State ----
     let rawImage = null;
@@ -542,12 +544,16 @@
     });
 
     async function processUpload(file) {
+        if (!removeBackgroundFn) {
+            statusUpload.textContent = '❌ The AI background removal library is not available. Please reload the page.';
+            return;
+        }
         statusUpload.textContent = '⏳ Removing background with AI…';
         uploadBox.style.pointerEvents = 'none';
         try {
-            // ✅ This is the correct, working call
-            const blob = await BackgroundRemoval.removeBackground(file, {
-                model: 'isnet',
+            const blob = await removeBackgroundFn(file, {
+                publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.6.0/dist/',
+                model: 'medium',
                 output: { format: 'image/png', quality: 1 },
                 progress: (key, current, total) => {
                     statusUpload.textContent = `AI: ${Math.round(current/total*100)}%`;
@@ -600,6 +606,7 @@
     sizeSelect.addEventListener('change', async () => { resetCrop(); await drawEditPreview(); });
 
     nextToLayout.addEventListener('click', () => {
+        sizeLabel.textContent = `${sizeSelect.value.replace('x','×')} mm · 300 DPI`;
         updateLayout();
         setStep(3);
     });
