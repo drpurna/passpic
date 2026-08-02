@@ -227,8 +227,8 @@
     </div>
 </div>
 
-<!-- Libraries: AI background removal + PDF -->
-<script src="https://unpkg.com/@imgly/background-removal@1.7.0/dist/background-removal.iife.js"></script>
+<!-- ✅ Corrected CDN – version 1.7.1 from jsdelivr (always online) -->
+<script src="https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.1/dist/background-removal.iife.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
@@ -266,9 +266,9 @@
     const sizeLabel = document.getElementById('sizeLabel');
 
     // ---- State ----
-    let rawImage = null;                 // RGBA Image after AI background removal
-    let editedImage = null;             // Image after current edits (full size)
-    let editRotation = 0;              // 0, 90, 180, 270
+    let rawImage = null;
+    let editedImage = null;
+    let editRotation = 0;
     let editFlipH = false, editFlipV = false;
     let cropX = 0.2, cropY = 0.2, cropW = 0.6;
     let currentLayout = 'single';
@@ -281,7 +281,6 @@
         dots.forEach((d, i) => d.classList.toggle('active', i+1 === n));
     }
 
-    // ---- Utils ----
     function getAspectRatio() {
         const [w, h] = sizeSelect.value.split('x').map(Number);
         return w / h;
@@ -289,64 +288,8 @@
 
     function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
 
-    // ---- Apply image edits (brightness, contrast, saturation, feather, rotation, flip) ----
-    function applyEdits() {
-        if (!rawImage) return;
-        const w = rawImage.width, h = rawImage.height;
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = w; tempCanvas.height = h;
-        const tctx = tempCanvas.getContext('2d');
-
-        // Draw original
-        tctx.clearRect(0,0,w,h);
-        tctx.drawImage(rawImage, 0, 0);
-
-        // Get image data
-        const imageData = tctx.getImageData(0, 0, w, h);
-        const data = imageData.data;
-
-        // Feather (blur alpha channel) using a simple box blur (repeat for strength)
-        const featherRadius = parseInt(featherInput.value, 10);
-        if (featherRadius > 0) {
-            const alphaCopy = new Uint8Array(data.length / 4);
-            for (let i = 0; i < alphaCopy.length; i++) alphaCopy[i] = data[i*4 + 3];
-            const blurred = boxBlurAlpha(alphaCopy, w, h, featherRadius);
-            for (let i = 0; i < alphaCopy.length; i++) data[i*4 + 3] = blurred[i];
-        }
-
-        tctx.putImageData(imageData, 0, 0);
-
-        // Now apply brightness/contrast/saturation via ctx.filter
-        const b = brightnessInput.value / 100;
-        const c = contrastInput.value / 100;
-        const s = saturationInput.value / 100;
-        tctx.filter = `brightness(${b}) contrast(${c}) saturate(${s})`;
-        tctx.globalCompositeOperation = 'source-over';
-        tctx.drawImage(tempCanvas, 0, 0);
-        tctx.filter = 'none';
-
-        // Handle rotation and flips
-        let transW = w, transH = h;
-        if (editRotation === 90 || editRotation === 270) [transW, transH] = [h, w];
-        const rotCanvas = document.createElement('canvas');
-        rotCanvas.width = transW; rotCanvas.height = transH;
-        const rctx = rotCanvas.getContext('2d');
-        rctx.save();
-        rctx.translate(transW/2, transH/2);
-        if (editFlipH) rctx.scale(-1, 1);
-        if (editFlipV) rctx.scale(1, -1);
-        rctx.rotate(editRotation * Math.PI / 180);
-        rctx.drawImage(tempCanvas, -w/2, -h/2);
-        rctx.restore();
-
-        editedImage = new Image();
-        editedImage.src = rotCanvas.toDataURL();
-        return new Promise(resolve => { editedImage.onload = resolve; });
-    }
-
     function boxBlurAlpha(alpha, w, h, radius) {
         const result = new Uint8Array(alpha.length);
-        const size = w * h;
         for (let y = 0; y < h; y++) {
             for (let x = 0; x < w; x++) {
                 let sum = 0, count = 0;
@@ -365,7 +308,54 @@
         return result;
     }
 
-    // ---- Draw edit preview with crop box ----
+    function applyEdits() {
+        if (!rawImage) return;
+        const w = rawImage.width, h = rawImage.height;
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = w; tempCanvas.height = h;
+        const tctx = tempCanvas.getContext('2d');
+
+        tctx.clearRect(0,0,w,h);
+        tctx.drawImage(rawImage, 0, 0);
+
+        const imageData = tctx.getImageData(0, 0, w, h);
+        const data = imageData.data;
+
+        const featherRadius = parseInt(featherInput.value, 10);
+        if (featherRadius > 0) {
+            const alphaCopy = new Uint8Array(data.length / 4);
+            for (let i = 0; i < alphaCopy.length; i++) alphaCopy[i] = data[i*4 + 3];
+            const blurred = boxBlurAlpha(alphaCopy, w, h, featherRadius);
+            for (let i = 0; i < alphaCopy.length; i++) data[i*4 + 3] = blurred[i];
+        }
+
+        tctx.putImageData(imageData, 0, 0);
+
+        const b = brightnessInput.value / 100;
+        const c = contrastInput.value / 100;
+        const s = saturationInput.value / 100;
+        tctx.filter = `brightness(${b}) contrast(${c}) saturate(${s})`;
+        tctx.drawImage(tempCanvas, 0, 0);
+        tctx.filter = 'none';
+
+        let transW = w, transH = h;
+        if (editRotation === 90 || editRotation === 270) [transW, transH] = [h, w];
+        const rotCanvas = document.createElement('canvas');
+        rotCanvas.width = transW; rotCanvas.height = transH;
+        const rctx = rotCanvas.getContext('2d');
+        rctx.save();
+        rctx.translate(transW/2, transH/2);
+        if (editFlipH) rctx.scale(-1, 1);
+        if (editFlipV) rctx.scale(1, -1);
+        rctx.rotate(editRotation * Math.PI / 180);
+        rctx.drawImage(tempCanvas, -w/2, -h/2);
+        rctx.restore();
+
+        editedImage = new Image();
+        editedImage.src = rotCanvas.toDataURL();
+        return new Promise(resolve => { editedImage.onload = resolve; });
+    }
+
     async function drawEditPreview() {
         if (!editedImage) return;
         const wrapperW = cropWrapper.clientWidth;
@@ -416,7 +406,6 @@
         updateCropBox();
     }
 
-    // ---- Generate final cropped image ----
     function generateFinalPhoto() {
         if (!editedImage) return null;
         const [wMM, hMM] = sizeSelect.value.split('x').map(Number);
@@ -458,16 +447,14 @@
         finalPhotoDataUrl = finalCanvas.toDataURL('image/jpeg', 0.92);
     }
 
-    // ---- Print layout ----
     function drawLayoutPreview() {
         const finalCanvas = generateFinalPhoto();
         if (!finalCanvas) return;
-        const [wMM, hMM] = sizeSelect.value.split('x').map(Number);
         const dpi = 300;
-        const sheetW = 4 * dpi;   // 4 inches
-        const sheetH = 6 * dpi;   // 6 inches
+        const sheetW = 4 * dpi;
+        const sheetH = 6 * dpi;
         const photoW = finalCanvas.width, photoH = finalCanvas.height;
-        const margin = 10; // pixels gap
+        const margin = 10;
 
         let cols, rows;
         if (currentLayout === 'single') { cols = 1; rows = 1; }
@@ -503,7 +490,6 @@
         drawLayoutPreview();
     }
 
-    // ---- Export functions ----
     function downloadURI(dataUri, filename) {
         const link = document.createElement('a');
         link.href = dataUri;
@@ -547,7 +533,7 @@
         statusUpload.textContent = '⏳ Removing background with AI…';
         uploadBox.style.pointerEvents = 'none';
         try {
-            // ✅ Corrected function name: imglyRemoveBackground
+            // ✅ Correct function name (imglyRemoveBackground) – now with working CDN
             const blob = await imglyRemoveBackground(file, {
                 model: 'isnet',
                 output: { format: 'image/png', quality: 1 },
@@ -562,7 +548,6 @@
                 URL.revokeObjectURL(url);
                 statusUpload.textContent = '';
                 uploadBox.style.pointerEvents = 'auto';
-                // Reset edits
                 brightnessInput.value = 100; contrastInput.value = 100;
                 saturationInput.value = 100; featherInput.value = 0;
                 bgColorInput.value = '#ffffff';
@@ -584,7 +569,6 @@
         }
     }
 
-    // Edit sliders
     [brightnessInput, contrastInput, saturationInput, featherInput].forEach(slider => {
         slider.addEventListener('input', async () => {
             document.getElementById('brightVal').textContent = brightnessInput.value + '%';
