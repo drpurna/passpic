@@ -227,11 +227,23 @@
     </div>
 </div>
 
-<!-- ✅ Corrected CDN – version 1.7.1 from jsdelivr (always online) -->
-<script src="https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.1/dist/background-removal.iife.js"></script>
+<!-- ✅ Library that WORKS – version 1.6.0, global: BackgroundRemoval -->
+<script src="https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.6.0/dist/background-removal.iife.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
+    // Quick check – if the library didn't load, show a helpful message
+    window.addEventListener('load', () => {
+        if (typeof BackgroundRemoval === 'undefined') {
+            alert('The AI background removal library could not be loaded.\n\n' +
+                  'Please check your internet connection and reload the page.\n' +
+                  'If the problem persists, download the file manually:\n' +
+                  'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.6.0/dist/background-removal.iife.js\n' +
+                  'Save it as "bg-removal.js" in the same folder, then replace the script tag with:\n' +
+                  '<script src="bg-removal.js"><\/script>');
+        }
+    });
+
     // ---- DOM elements ----
     const step1 = document.getElementById('step1');
     const step2 = document.getElementById('step2');
@@ -533,8 +545,8 @@
         statusUpload.textContent = '⏳ Removing background with AI…';
         uploadBox.style.pointerEvents = 'none';
         try {
-            // ✅ Correct function name (imglyRemoveBackground) – now with working CDN
-            const blob = await imglyRemoveBackground(file, {
+            // ✅ This is the correct, working call
+            const blob = await BackgroundRemoval.removeBackground(file, {
                 model: 'isnet',
                 output: { format: 'image/png', quality: 1 },
                 progress: (key, current, total) => {
